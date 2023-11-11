@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cassert>
 #include <cstdint>
-#ifndef PositionClass
-#define PositionClass
+#ifndef POSITIONCLASS_HPP
+#define POSITIONCLASS_HPP
 
 class Position {
 public:

@@ -1,5 +1,6 @@
-#ifndef solver_h
-#define solver_h
+#ifndef SOLVER_HPP
+#define SOLVER_HPP
+
 #include "PositionClass.hpp"
 #include "TransPositionTable.hpp"
 #include <thread>
@@ -11,19 +12,15 @@
 #include <string>
 #include <iostream>
 constexpr char movePrio[7] = { 3,2,4,1,5,0,6 };
-
 class solver {
 	std::unordered_map<uint64_t, int> openingBook;
 	Connect4::TranspositionTable<49, 8, 29> positions;
 	bool openingBookLoaded = false;
-	
 
 public:
-
 	bool makeOpeningBook = false;
 	std::mutex mtx;
 	static const char INFI = 43;
-
 
 	uint64_t nodeCounter = 0;
 	float totalTime = 0;
@@ -32,7 +29,6 @@ public:
 	int negaMax(Position& P, int alpha = -INFI, int beta = +INFI, bool returnBestMove = false) {
 		int tempEval;
 		int bestMove;
-
 		nodeCounter++;
 
 		if (nodeCounter % 10'000'000 == 0) {
@@ -46,6 +42,7 @@ public:
 		if (P.moves == 42) {
 			return 0; // draw
 		}
+
 		uint64_t nonLosingMoves = P.possibleNonLosingMoves();
 
 		if (!nonLosingMoves) {
@@ -64,15 +61,13 @@ public:
 		int min = -(Position::WIDTH * Position::HEIGHT - 2 - P.moves) / 2;	// lower bound of score as opponent cannot win next move
 		if (alpha < min) {
 			alpha = min;                     // there is no need to keep alpha below our max possible score.
-			//if (makeOpeningBook && P.moves <= 10) openingBook.emplace(P.key, alpha - Position::MIN_SCORE + 1);
-			if (P.moves > 8)
 			if (alpha >= beta) return alpha;  // prune the exploration if the [alpha;beta] window is empty.
 		}
 
 		int max = (42 - 1 - P.moves) / 2;
 		if (beta > max) {
 			beta = max;
-			if (P.moves > 8)
+			//if (P.moves > 8)
 			if (alpha >= beta) return beta;
 		}
 
@@ -86,8 +81,6 @@ public:
 				min = val + 2 * Position::MIN_SCORE - Position::MAX_SCORE - 2;
 				if (alpha < min) {
 					alpha = min;                     // there is no need to keep alpha below our min possible score.
-					//if (makeOpeningBook && P.moves <= 10) openingBook.emplace(P.key, alpha - Position::MIN_SCORE + 1);
-					if (P.moves > 8)
 					if (alpha >= beta) return alpha;  // prune the exploration if the [alpha;beta] window is empty.
 				}
 			}
@@ -95,12 +88,10 @@ public:
 				max = val + Position::MIN_SCORE - 1;
 				if (beta > max) {
 					beta = max;
-					if (P.moves > 8)// there is no need to keep beta above our max possible score.
 					if (alpha >= beta) return beta;  // prune the exploration if the [alpha;beta] window is empty.
 				}
 			}
 		}
-
 		constexpr uint64_t columnMask = 0b111111;
 		for (int i : movePrio) {
 			if (P.canPlay(i) && (nonLosingMoves & (columnMask << (i * 7)))) {
@@ -114,7 +105,6 @@ public:
 					mtx.lock();
 					positions.emplace(P.key, tempEval + Position::MAX_SCORE - 2 * Position::MIN_SCORE + 2);
 					mtx.unlock();
-					if(P.moves > 8)
 					return tempEval;  // prune the exploration if we find a possible move better than what we were looking for.
 				}
 				if (tempEval > alpha) alpha = tempEval, bestMove = i; // reduce the [alpha;beta] window for next exploration, as we only
@@ -127,23 +117,18 @@ public:
 		if (makeOpeningBook && P.moves <= 10) 
 		{
 			std::ofstream file("OpeningBook.txt", std::ios::app);
-			file << P.key << " " << (alpha - Position::MIN_SCORE + 1) << "\n";
+			file << P.key << " " << (alpha/* - Position::MIN_SCORE + 1*/) << "\n";
+			file.close();
 		}
 		mtx.unlock();
 
-		//if (returnBestMove) {
-		//	return bestMove;
-		//}
 		return alpha;
 	}
-
 	void umbrellaFunc(std::promise<int>&& p, Position P2) {
-		int tempValue;
-		int alpha = -21;
-		int beta = 21;
+		int alpha = -22;
+		int beta = 22;
 		p.set_value(-negaMax(P2, alpha, beta));
 	}
-
 	auto solve(Position& P) {
 
 		struct E {
@@ -199,9 +184,19 @@ public:
 		int alpha = -22;
 		int beta = 22;
 		bool firstValidMove = true;
-		uint64_t nonLosingMoves = 0b0100000010000001000000100000010000001000000100000;
+		uint64_t nonLosingMoves = 0b11111111111111111111111111111111111111111111111; 
 		nodeCounter++;
 
+		constexpr uint64_t columnMask = 0b111111;
+		if (P.nextMoveWin()) {
+			for (int  i = 0; i < 7; i++) {
+				if (P.winning_position() & P.possible() & (columnMask << (i * 7))) {
+					P.play(i);
+					return;
+				}
+
+			}
+		}
 		if(!P.nextMoveWin()) {
 			nonLosingMoves = P.possibleNonLosingMoves();
 			if (!nonLosingMoves) {
@@ -220,7 +215,32 @@ public:
 			val = positions.at(P.key2);
 		}
 
-		constexpr uint64_t columnMask = 0b111111;
+		int min = -(Position::WIDTH * Position::HEIGHT - 2 - P.moves) / 2;	
+		if (alpha < min) {
+			alpha = min;                     
+		}
+
+		int max = (42 - 1 - P.moves) / 2;
+		if (beta > max) {
+			beta = max;
+		}
+
+		if (val) {  
+			if (val > Position::MAX_SCORE - Position::MIN_SCORE + 1) { 
+				min = val + 2 * Position::MIN_SCORE - Position::MAX_SCORE - 2;
+				if (alpha < min) {
+					alpha = min;  
+
+				}
+			}
+			else {
+				max = val + Position::MIN_SCORE - 1;
+				if (beta > max) {
+					beta = max;
+				}
+			}
+		}
+
 		for (int i : movePrio) {
 			if (P.canPlay(i) && (nonLosingMoves & (columnMask << (i * 7)))) {
 
@@ -260,5 +280,4 @@ public:
 		openingBookLoaded = true;
 	}
 };
-
 #endif

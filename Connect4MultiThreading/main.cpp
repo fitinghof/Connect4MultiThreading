@@ -22,7 +22,7 @@
 
 int main() {
     solver s1;
-    //s1.loadOpeningBook();
+    s1.loadOpeningBook();
     //s1.makeOpeningBook = true;
     Position Current;
     int temp = 0;
@@ -35,8 +35,8 @@ int main() {
             /*int input;
             std::cin >> input;
             Current.play(input - 1);*/
-
             auto start1{ std::chrono::steady_clock::now() };
+            //Current.play(s1.solve(Current).bestMove);
             s1.aiPlay(Current);
             auto end1{ std::chrono::steady_clock::now() };
             std::cout << std::chrono::duration<double>(end1 - start1);
@@ -44,10 +44,10 @@ int main() {
         else {
             auto start{ std::chrono::steady_clock::now()};
             s1.aiPlay(Current);
+            //Current.play(s1.solve(Current).bestMove);
             auto end{ std::chrono::steady_clock::now()};
             std::cout << std::chrono::duration<double>(end - start);
         }
-
         if (Current.hasWon(Current.player ^ Current.mask)) {
             std::cout << "Player1 Won!";
             Current.drawBoard();
